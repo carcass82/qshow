@@ -7,39 +7,44 @@
 #include "qshow.h"
 
 QShow::QShow(const std::string& arg)
+    : img(nullptr)
+    , imgModified(nullptr)
+    , screen(nullptr)
+    , quit(false)
+    , fullscreen(false)
+    , render(false)
+    , showCheckerBoard(false)
+    , zoomFactor(1.0f)
+    , rotDegrees(0.0f)
 {
-	img = NULL;
-	imgModified = NULL;
-	screen = NULL;
-	quit = false;
-	fullscreen = false;
-	render = false;
-	showCheckerBoard = false;
-	zoomFactor = 1.0f;
-	rotDegrees = 0.0f;
-
-	scrollEnable[SC_LEFT] = false;
+    scrollEnable[SC_LEFT] = false;
 	scrollEnable[SC_RIGHT] = false;
 	scrollEnable[SC_UP] = false;
 	scrollEnable[SC_DOWN] = false;
 	isScrolling = false;
 
 	std::list<std::string> supportedFileExts;
-	supportedFileExts.push_back("jpg");
-	supportedFileExts.push_back("png");
-	supportedFileExts.push_back("bmp");
-	supportedFileExts.push_back("gif");
-	supportedFileExts.push_back("tga");
-	supportedFileExts.push_back("tif");
+    supportedFileExts.push_back(".jpg");
+    supportedFileExts.push_back(".png");
+    supportedFileExts.push_back(".bmp");
+    supportedFileExts.push_back(".gif");
+    supportedFileExts.push_back(".tga");
+    supportedFileExts.push_back(".tif");
 
-	fileName = arg;
-	fs = new FileSystem(arg);
-	filelist = fs->GetFileList(supportedFileExts);
-	fileName = fs->GetAbsoluteFileName();
-	curFile = std::find(filelist.begin(), filelist.end(), fileName);
+    fs::path selectedFile(fs::current_path() / fs::path(arg));
 
-	LoadImage();
-	InitSDL();
+    auto it = fs::directory_iterator(selectedFile.parent_path());
+    for (auto& p : it) {
+        const std::string ext = p.path().extension().generic_string();
+        if (std::find(supportedFileExts.begin(), supportedFileExts.end(), ext) != supportedFileExts.end()) {
+            filelist.push_back(p.path());
+        }
+    }
+
+    curFile = filelist.begin();
+    LoadImage(selectedFile);
+
+    InitSDL();
 }
 
 QShow::~QShow()
@@ -77,30 +82,32 @@ void QShow::InitSDL()
 	SetVideoMode();
 	Reshape();
 
-	SDL_WM_SetCaption(std::string("QShow v1.0 [" + fs->GetFileName() + "]").c_str(), "");
+    SetTitle((*curFile).filename().generic_string());
 
     res = IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG);
     assert(res != 0);
 }
 
-void QShow::LoadImage()
+void QShow::LoadImage(const fs::path& image_file)
 {
 	// reset zoom and rotation
 	zoomFactor = 1.0;
 	rotDegrees = 0.0;
 
-	SDL_FreeSurface(img);
-	img = IMG_Load(fileName.c_str());
-	assert(img);
+    if (image_file.extension() == ".png") {
+        SDL_FreeSurface(img);
+        img = IMG_Load(image_file.generic_string().c_str());
+        assert(img);
+    }
 }
 
 bool QShow::ChangeImage(BrowseImg whichImg)
 {
 	switch (whichImg) {
 	case IM_NEXT:
-		++curFile;
-		if (curFile == filelist.end()) {
-			--curFile;
+        ++curFile;
+        if (curFile == filelist.end()) {
+            --curFile;
 			return false;
 		}
 		break;
@@ -115,14 +122,10 @@ bool QShow::ChangeImage(BrowseImg whichImg)
 		break;
 	}
 
-	fs->SetFileName(*curFile);
-	fileName = fs->GetAbsoluteFileName();
-	SDL_WM_SetCaption(std::string("QShow [" +
-	                              fs->GetFileName() +
-	                              "]").c_str(),
-	                              "");
+    SetTitle((*curFile).filename().generic_string());
 
-	LoadImage();
+    LoadImage(*curFile);
+
 	return true;
 }
 
@@ -407,4 +410,12 @@ int QShow::Show()
 		}
 	}
 	return 0;
+}
+
+void QShow::SetTitle(const std::string& filename)
+{
+    size_t title_length = std::snprintf(nullptr, 0, "qShow v1.0 [%s]", filename.c_str());
+    std::vector<char> title_string(title_length + 1);
+    std::snprintf(&title_string[0], title_length + 1, "qShow v1.0 [%s]", filename.c_str());
+    SDL_WM_SetCaption(&title_string[0], "");
 }

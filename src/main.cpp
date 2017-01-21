@@ -7,18 +7,18 @@
 #include <iostream>
 #include "qshow.h"
 
-void usage()
+int usage()
 {
 	std::cerr << "usage: qshow <image file>" << std::endl;
+    return -1;
 }
 
 int main(int argc, char **argv)
 {
-	if (argc == 1) {
-		usage();
-		return -1;
-	}
-
-	QShow mainw(argv[1]);
-	return mainw.Show();
+    if (argc < 2) {
+        return usage();
+    } else {
+        QShow mainw(argv[1]);
+        return mainw.Show();
+    }
 }

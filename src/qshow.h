@@ -4,22 +4,24 @@
  * 2008 (C) BELiAL <carlo.casta@gmail.com>
  */
 
-#ifndef QSHOW_H_
-#define QSHOW_H_
-
+#pragma once
 #include <cassert>
 #include <string>
+#include <list>
 #include <algorithm>
+
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+
 #include <SDL/SDL.h>
 #include <SDL/SDL_rotozoom.h>
 #include <SDL/SDL_image.h>
-#include "filesystem.h"
 
 class QShow
 {
 public:
 	QShow(const std::string&);
-	virtual ~QShow();
+    ~QShow();
 	int Show();
 
 private:
@@ -30,7 +32,7 @@ private:
 
 	void InitSDL();
 	void Shutdown();
-	void LoadImage();
+    void LoadImage(const fs::path& image_file);
 	bool ChangeImage(BrowseImg);
 	void Reshape();
 	void SetVideoMode();
@@ -40,6 +42,7 @@ private:
 	void CenterImage();
 	void Draw();
 	void DrawCheckerPattern();
+    void SetTitle(const std::string& filename);
 
 	bool quit;
 	bool fullscreen;
@@ -47,7 +50,6 @@ private:
 	bool isScrolling;
 	bool showCheckerBoard;
 	ScrollDirection scrollDir;
-	std::string fileName;
 	int bestWidth;
 	int bestHeight;
 	int width;
@@ -56,9 +58,9 @@ private:
 	float rotDegrees;
 	bool scrollEnable[4];
 
-	FileSystem *fs;
-	std::list<std::string> filelist;
-	std::list<std::string>::iterator curFile;
+    //std::string fileName;
+    std::list<fs::path> filelist;
+    std::list<fs::path>::iterator curFile;
 
 	SDL_Event event;
 	SDL_Surface *screen;
@@ -66,5 +68,3 @@ private:
 	SDL_Surface *imgModified;
 	SDL_Rect imgPosition;
 };
-
-#endif /* QSHOW_H_ */

@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 2.6)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -g")
+if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+        set(FILESYSTEM_LIBRARY "-lstdc++fs")
+endif()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
 
 project(QSHOW)
@@ -20,5 +25,5 @@ include_directories(${QSHOW_SOURCE_DIR}/src)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${QSHOW_SOURCE_DIR}/bin/)
 
 add_executable(qshow ${QSHOW_SRC})
-target_link_libraries(qshow ${SDL_LIBRARY} ${SDLIMAGE_LIBRARY} ${SDLGFX_LIBRARY})
+target_link_libraries(qshow ${SDL_LIBRARY} ${SDLIMAGE_LIBRARY} ${SDLGFX_LIBRARY} ${FILESYSTEM_LIBRARY})
 
