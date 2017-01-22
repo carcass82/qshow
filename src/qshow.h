@@ -5,6 +5,7 @@
  */
 
 #pragma once
+
 #include <cassert>
 #include <string>
 #include <list>
@@ -13,58 +14,60 @@
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 
-#include <SDL/SDL.h>
-#include <SDL/SDL_rotozoom.h>
-#include <SDL/SDL_image.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 class QShow
 {
 public:
-	QShow(const std::string&);
+    QShow(const std::string&);
     ~QShow();
-	int Show();
+    void Show();
 
 private:
-	enum ZoomParam { ZOOMIN, ZOOMOUT };
-	enum RotParm { ROT_CW, ROT_CCW };
-	enum ScrollDirection { SC_RIGHT, SC_LEFT, SC_UP, SC_DOWN, SC_CHECK };
-	enum BrowseImg { IM_NEXT, IM_PREV };
+    enum ZoomParam { ZOOMIN, ZOOMOUT };
+    enum RotParm { ROT_CW, ROT_CCW };
+    enum ScrollDirection { SC_RIGHT, SC_LEFT, SC_UP, SC_DOWN, SC_CHECK };
+    enum BrowseImg { IM_NEXT, IM_PREV };
 
-	void InitSDL();
-	void Shutdown();
+    void InitSDL();
     void LoadImage(const fs::path& image_file);
-	bool ChangeImage(BrowseImg);
-	void Reshape();
-	void SetVideoMode();
-	void ZoomImage(ZoomParam, int x = -1, int y = -1);
-	void RotateImage(RotParm r) { rotDegrees += (r == ROT_CW)? 90.0 : -90.0; }
-	bool Scroll(ScrollDirection);
-	void CenterImage();
-	void Draw();
-	void DrawCheckerPattern();
+    bool ChangeImage(BrowseImg direction);
+    void Reshape();
+    void SetVideoMode();
+    void ZoomImage(ZoomParam, int x = -1, int y = -1);
+    bool Scroll(ScrollDirection s);
+    void CenterImage();
+    void Render();
+    void DrawCheckerPattern();
     void SetTitle(const std::string& filename);
+    void OnImageChanged();
 
-	bool quit;
-	bool fullscreen;
-	bool render;
-	bool isScrolling;
-	bool showCheckerBoard;
-	ScrollDirection scrollDir;
-	int bestWidth;
-	int bestHeight;
-	int width;
-	int height;
-	float zoomFactor;
-	float rotDegrees;
-	bool scrollEnable[4];
+    bool quit = false;
+    bool fullscreen_ = false;
+    bool render = false;
+    bool isScrolling = false;
+    bool showCheckerBoard = false;
+    int bestWidth = 0;
+    int bestHeight = 0;
+    int width_ = 0;
+    int height_ = 0;
+    int bpp_ = 0;
+    float image_zoom_ = 1.0f;
+    float image_rot_deg_ = 0.0f;
+    bool scrollEnable[SC_CHECK] = { false, false, false, false };
 
-    //std::string fileName;
-    std::list<fs::path> filelist;
-    std::list<fs::path>::iterator curFile;
+    std::list<fs::path> filelist_;
+    std::list<fs::path>::iterator current_file_;
 
-	SDL_Event event;
-	SDL_Surface *screen;
-	SDL_Surface *img;
-	SDL_Surface *imgModified;
-	SDL_Rect imgPosition;
+    ScrollDirection scrollDir;
+
+    SDL_Window* window_ = nullptr;
+    SDL_Renderer* renderer_ = nullptr;
+    SDL_Texture* texture_ = nullptr;
+
+    SDL_Event event;
+    SDL_Surface* original_image_ = nullptr;
+    SDL_Surface* image_ = nullptr;
+    SDL_Rect image_position_;
 };

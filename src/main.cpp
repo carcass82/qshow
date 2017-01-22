@@ -16,9 +16,13 @@ int usage()
 int main(int argc, char **argv)
 {
     if (argc < 2) {
+
         return usage();
+
     } else {
+
         QShow mainw(argv[1]);
-        return mainw.Show();
+        mainw.Show();
+
     }
 }
