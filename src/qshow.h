@@ -42,19 +42,21 @@ private:
     void DrawCheckerPattern();
     void SetTitle(const std::string& filename);
     void OnImageChanged();
+    void OnSizeChanged(int32_t w, int32_t h);
 
     bool quit = false;
     bool fullscreen_ = false;
     bool render = false;
     bool isScrolling = false;
     bool showCheckerBoard = false;
-    int bestWidth = 0;
-    int bestHeight = 0;
+    int window_width_ = 0;
+    int window_height_ = 0;
     int width_ = 0;
     int height_ = 0;
     int bpp_ = 0;
     float image_zoom_ = 1.0f;
     float image_rot_deg_ = 0.0f;
+    float image_fit_factor_= 0.0f;
     bool scrollEnable[SC_CHECK] = { false, false, false, false };
 
     std::list<fs::path> filelist_;

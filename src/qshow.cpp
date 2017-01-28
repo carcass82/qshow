@@ -24,7 +24,7 @@ QShow::QShow(const std::string& arg)
     auto directory = fs::directory_iterator(selectedFile.parent_path());
     for (auto& path : directory) {
 
-        const std::string& extension = path.path().extension().generic_string();
+        auto extension = path.path().extension().generic_string();
 
         if (std::find(supportedFileExts.begin(), supportedFileExts.end(), extension) != supportedFileExts.end()) {
             filelist_.push_back(path.path());
@@ -35,6 +35,8 @@ QShow::QShow(const std::string& arg)
     LoadImage(selectedFile);
 
     SetVideoMode();
+
+    OnImageChanged();
 }
 
 QShow::~QShow()
@@ -66,6 +68,7 @@ void QShow::LoadImage(const fs::path& image_file)
     image_rot_deg_ = 0.0f;
 
     SDL_FreeSurface(original_image_);
+    original_image_ = nullptr;
 
     original_image_ = IMG_Load(image_file.generic_string().c_str());
     SDL_assert(original_image_);
@@ -88,10 +91,9 @@ void QShow::SetVideoMode()
     SDL_assert(window_);
     SDL_assert(renderer_);
 
-    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(renderer_, 0x00, 0x00, 0x00, 0xff);
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-    OnImageChanged();
 }
 
 void QShow::OnImageChanged()
@@ -101,32 +103,41 @@ void QShow::OnImageChanged()
     texture_ = SDL_CreateTextureFromSurface(renderer_, original_image_);
 
     SDL_assert(texture_);
-    SDL_Log("created ARGB texture %dx%d", width_, height_);
+}
+
+void QShow::OnSizeChanged(int32_t w, int32_t h)
+{
+    image_fit_factor_ = std::min(static_cast<float>(w) / width_, static_cast<float>(h) / height_);
+    window_width_ = w;
+    window_height_ = h;
+
+    SDL_Log("resize event: %dx%d, new fit factor %f", w, h, image_fit_factor_);
 }
 
 void QShow::Render()
 {
     SDL_RenderClear(renderer_);
 
-    //SDL_GetWindowSize(window_, &win_width, &win_height);
+    SDL_Rect image_zoom{0, 0, width_, height_};
+    if (image_zoom_ != 1.0f) {
+        float w2 = image_zoom.w / 2.0f;
+        float h2 = image_zoom.h / 2.0f;
 
-    int w = original_image_->w;
-    int h = original_image_->h;
-
-    SDL_Rect imageZoom{0, 0, w, h};
-    if (image_zoom_ > 1.0f) {
-        float w2 = imageZoom.w / 2.0f;
-        float h2 = imageZoom.h / 2.0f;
-
-        imageZoom.x = w2 - (w2 / image_zoom_);
-        imageZoom.y = h2 - (h2 / image_zoom_);
-        imageZoom.w = w / image_zoom_;
-        imageZoom.h = h / image_zoom_;
-
-        SDL_Log("new image: (%d,%d - %d,%d)", imageZoom.x, imageZoom.y, imageZoom.w, imageZoom.h);
+        image_zoom.x = w2 - (w2 / image_zoom_);
+        image_zoom.y = h2 - (h2 / image_zoom_);
+        image_zoom.w = width_ / image_zoom_;
+        image_zoom.h = height_ / image_zoom_;
     }
 
-    SDL_RenderCopyEx(renderer_, texture_, &imageZoom, nullptr, image_rot_deg_, nullptr, SDL_FLIP_NONE);
+    SDL_Rect image_fit{0, 0, window_width_, window_height_};
+    if (image_fit_factor_ != 1.0f) {
+        image_fit.x = (window_width_ - (width_ * image_fit_factor_)) / 2.0f;
+        image_fit.y = (window_height_ - (height_ * image_fit_factor_)) / 2.0f;
+        image_fit.w = width_ * image_fit_factor_;
+        image_fit.h = height_ * image_fit_factor_;
+    }
+
+    SDL_RenderCopyEx(renderer_, texture_, &image_zoom, &image_fit, image_rot_deg_, nullptr, SDL_FLIP_NONE);
 
     SDL_RenderPresent(renderer_);
 }
@@ -143,12 +154,18 @@ void QShow::Show()
             switch (event.window.event) {
             case SDL_WINDOWEVENT_CLOSE:
                 quit = true;
+                break;
+            case SDL_WINDOWEVENT_RESIZED:
+                OnSizeChanged(event.window.data1, event.window.data2);
+                break;
             }
             break;
 
         case SDL_MOUSEWHEEL:
-            if (ChangeImage((event.wheel.y > 0)? IM_PREV : IM_NEXT))
+            if (ChangeImage((event.wheel.y > 0)? IM_PREV : IM_NEXT)) {
                 OnImageChanged();
+                OnSizeChanged(window_width_, window_height_);
+            }
             break;
 
         case SDL_KEYDOWN:
@@ -209,6 +226,7 @@ bool QShow::ChangeImage(BrowseImg direction)
 
     default:
         break;
+
     }
 
     SetTitle((*current_file_).filename().generic_string());
