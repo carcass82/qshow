@@ -65,13 +65,11 @@ void QShow::LoadImage(const fs::path& image_file)
     FreeImage_Unload(original_image_);
     original_image_ = nullptr;
 
-    FREE_IMAGE_FORMAT format = FreeImage_GetFileType(image_file.generic_string().c_str());
-    if (format != FIF_UNKNOWN) {
-        original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
-        FIBITMAP* tmp = original_image_;
-        original_image_ = FreeImage_ConvertTo32Bits(original_image_);
-        FreeImage_Unload(tmp);
-    }
+
+    original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
+    FIBITMAP* tmp = original_image_;
+    original_image_ = FreeImage_ConvertTo32Bits(original_image_);
+    FreeImage_Unload(tmp);
 
     SDL_assert(original_image_);
 
@@ -153,6 +151,8 @@ void QShow::Show()
 
         SDL_WaitEvent(&sdl_event_);
 
+        bool do_render = false;
+
         switch (sdl_event_.type) {
 
         case SDL_WINDOWEVENT:
@@ -163,6 +163,10 @@ void QShow::Show()
             case SDL_WINDOWEVENT_RESIZED:
                 OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2);
                 break;
+
+            case SDL_WINDOWEVENT_EXPOSED:
+                do_render = true;
+                break;
             }
             break;
 
@@ -170,6 +174,7 @@ void QShow::Show()
             if (ChangeImage((sdl_event_.wheel.y > 0)? IMG_PREV : IMG_NEXT)) {
                 OnImageChanged();
                 OnSizeChanged(window_width_, window_height_);
+                do_render = true;
             }
             break;
 
@@ -180,16 +185,20 @@ void QShow::Show()
                 break;
             case SDLK_f:
                 fullscreen_ = !fullscreen_;
+                do_render = true;
                 break;
             case SDLK_r:
                 image_rot_deg_ += 90.0f * ((sdl_event_.key.keysym.mod & KMOD_SHIFT)? -1.0f : 1.0f);
                 image_rot_deg_ = std::fmod(image_rot_deg_, 360.0f);
+                do_render = true;
                 break;
             case SDLK_PLUS:
                 image_zoom_ = image_zoom_ + 0.1f;
+                do_render = true;
                 break;
             case SDLK_MINUS:
                 image_zoom_ = std::max(1.0f, image_zoom_ - 0.1f);
+                do_render = true;
                 break;
             }
             break;
@@ -198,7 +207,10 @@ void QShow::Show()
             break;
         }
 
-        Render();
+        if (do_render)
+            Render();
+
+        SDL_Delay(1);
     }
 }
 
