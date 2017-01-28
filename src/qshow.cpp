@@ -42,7 +42,6 @@ QShow::QShow(const std::string& arg)
 QShow::~QShow()
 {
     FreeImage_Unload(original_image_);
-    SDL_FreeSurface(image_);
 
     SDL_DestroyTexture(texture_);
     SDL_DestroyRenderer(renderer_);
@@ -135,7 +134,7 @@ void QShow::Render()
         image_zoom.h = height_ / image_zoom_;
     }
 
-    SDL_Rect image_fit{0, 0, window_width_, window_height_};
+    SDL_Rect image_fit{(window_width_ - width_) / 2.0f, (window_height_ - height_) / 2.0f, width_, height_};
     if (image_fit_factor_ != 1.0f) {
         image_fit.x = (window_width_ - (width_ * image_fit_factor_)) / 2.0f;
         image_fit.y = (window_height_ - (height_ * image_fit_factor_)) / 2.0f;
@@ -152,30 +151,30 @@ void QShow::Show()
 {
     while (!quit_) {
 
-        SDL_WaitEvent(&event);
+        SDL_WaitEvent(&sdl_event_);
 
-        switch (event.type) {
+        switch (sdl_event_.type) {
 
         case SDL_WINDOWEVENT:
-            switch (event.window.event) {
+            switch (sdl_event_.window.event) {
             case SDL_WINDOWEVENT_CLOSE:
                 quit_ = true;
                 break;
             case SDL_WINDOWEVENT_RESIZED:
-                OnSizeChanged(event.window.data1, event.window.data2);
+                OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2);
                 break;
             }
             break;
 
         case SDL_MOUSEWHEEL:
-            if (ChangeImage((event.wheel.y > 0)? IMG_PREV : IMG_NEXT)) {
+            if (ChangeImage((sdl_event_.wheel.y > 0)? IMG_PREV : IMG_NEXT)) {
                 OnImageChanged();
                 OnSizeChanged(window_width_, window_height_);
             }
             break;
 
         case SDL_KEYDOWN:
-            switch (event.key.keysym.sym) {
+            switch (sdl_event_.key.keysym.sym) {
             case SDLK_ESCAPE:
                 quit_ = true;
                 break;
@@ -183,7 +182,7 @@ void QShow::Show()
                 fullscreen_ = !fullscreen_;
                 break;
             case SDLK_r:
-                image_rot_deg_ += 90.0f * ((event.key.keysym.mod & KMOD_SHIFT)? -1.0f : 1.0f);
+                image_rot_deg_ += 90.0f * ((sdl_event_.key.keysym.mod & KMOD_SHIFT)? -1.0f : 1.0f);
                 image_rot_deg_ = std::fmod(image_rot_deg_, 360.0f);
                 break;
             case SDLK_PLUS:

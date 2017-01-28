@@ -48,15 +48,13 @@ private:
     float image_rot_deg_ = 0.0f;
     float image_fit_factor_= 0.0f;
 
-    std::list<fs::path> filelist_;
-    std::list<fs::path>::iterator current_file_;
+    std::vector<fs::path> filelist_;
+    std::vector<fs::path>::iterator current_file_;
 
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
     SDL_Texture* texture_ = nullptr;
 
-    SDL_Event event;
+    SDL_Event sdl_event_;
     FIBITMAP* original_image_ = nullptr;
-    SDL_Surface* image_ = nullptr;
-    SDL_Rect image_position_;
 };
