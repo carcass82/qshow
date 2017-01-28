@@ -2,6 +2,7 @@
  * QShow - a fast and KISS image viewer
  *
  * 2008 (C) BELiAL <carlo.casta@gmail.com>
+ * 2017 - updated to SDL2
  */
 
 #include "qshow.h"
@@ -24,9 +25,8 @@ QShow::QShow(const std::string& arg)
     auto directory = fs::directory_iterator(selectedFile.parent_path());
     for (auto& path : directory) {
 
-        auto extension = path.path().extension().generic_string();
-
-        if (std::find(supportedFileExts.begin(), supportedFileExts.end(), extension) != supportedFileExts.end()) {
+        FREE_IMAGE_FORMAT format = FreeImage_GetFileType(path.path().generic_string().c_str());
+        if (format != FIF_UNKNOWN) {
             filelist_.push_back(path.path());
         }
     }
@@ -41,14 +41,13 @@ QShow::QShow(const std::string& arg)
 
 QShow::~QShow()
 {
-    SDL_FreeSurface(original_image_);
+    FreeImage_Unload(original_image_);
     SDL_FreeSurface(image_);
 
     SDL_DestroyTexture(texture_);
     SDL_DestroyRenderer(renderer_);
     SDL_DestroyWindow(window_);
 
-    IMG_Quit();
     SDL_Quit();
 }
 
@@ -56,9 +55,6 @@ void QShow::InitSDL()
 {
     int res = SDL_Init(SDL_INIT_VIDEO);
     SDL_assert(res >= 0);
-
-    res = IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_TIF);
-    SDL_assert(res != 0);
 }
 
 void QShow::LoadImage(const fs::path& image_file)
@@ -67,15 +63,22 @@ void QShow::LoadImage(const fs::path& image_file)
     image_zoom_ = 1.0f;
     image_rot_deg_ = 0.0f;
 
-    SDL_FreeSurface(original_image_);
+    FreeImage_Unload(original_image_);
     original_image_ = nullptr;
 
-    original_image_ = IMG_Load(image_file.generic_string().c_str());
+    FREE_IMAGE_FORMAT format = FreeImage_GetFileType(image_file.generic_string().c_str());
+    if (format != FIF_UNKNOWN) {
+        original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
+        FIBITMAP* tmp = original_image_;
+        original_image_ = FreeImage_ConvertTo32Bits(original_image_);
+        FreeImage_Unload(tmp);
+    }
+
     SDL_assert(original_image_);
 
-    width_ = original_image_->w;
-    height_ = original_image_->h;
-    bpp_ = original_image_->format->BitsPerPixel;
+    width_ = FreeImage_GetWidth(original_image_);
+    height_ = FreeImage_GetHeight(original_image_);
+    bpp_ = FreeImage_GetBPP(original_image_);
 
     SDL_Log("Loaded %s (%dx%d), %dbpp", image_file.generic_string().c_str(), width_, height_, bpp_);
 }
@@ -100,7 +103,8 @@ void QShow::OnImageChanged()
 {
     SDL_DestroyTexture(texture_);
 
-    texture_ = SDL_CreateTextureFromSurface(renderer_, original_image_);
+    texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STATIC, width_, height_);
+    SDL_UpdateTexture(texture_, nullptr, FreeImage_GetBits(original_image_), width_ * bpp_ / 8);
 
     SDL_assert(texture_);
 }
@@ -116,6 +120,8 @@ void QShow::OnSizeChanged(int32_t w, int32_t h)
 
 void QShow::Render()
 {
+    SDL_SetWindowFullscreen(window_, (fullscreen_? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+
     SDL_RenderClear(renderer_);
 
     SDL_Rect image_zoom{0, 0, width_, height_};
@@ -137,14 +143,14 @@ void QShow::Render()
         image_fit.h = height_ * image_fit_factor_;
     }
 
-    SDL_RenderCopyEx(renderer_, texture_, &image_zoom, &image_fit, image_rot_deg_, nullptr, SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer_, texture_, &image_zoom, &image_fit, image_rot_deg_, nullptr, SDL_FLIP_VERTICAL);
 
     SDL_RenderPresent(renderer_);
 }
 
 void QShow::Show()
 {
-    while (!quit) {
+    while (!quit_) {
 
         SDL_WaitEvent(&event);
 
@@ -153,7 +159,7 @@ void QShow::Show()
         case SDL_WINDOWEVENT:
             switch (event.window.event) {
             case SDL_WINDOWEVENT_CLOSE:
-                quit = true;
+                quit_ = true;
                 break;
             case SDL_WINDOWEVENT_RESIZED:
                 OnSizeChanged(event.window.data1, event.window.data2);
@@ -162,7 +168,7 @@ void QShow::Show()
             break;
 
         case SDL_MOUSEWHEEL:
-            if (ChangeImage((event.wheel.y > 0)? IM_PREV : IM_NEXT)) {
+            if (ChangeImage((event.wheel.y > 0)? IMG_PREV : IMG_NEXT)) {
                 OnImageChanged();
                 OnSizeChanged(window_width_, window_height_);
             }
@@ -171,11 +177,10 @@ void QShow::Show()
         case SDL_KEYDOWN:
             switch (event.key.keysym.sym) {
             case SDLK_ESCAPE:
-                quit = true;
+                quit_ = true;
                 break;
             case SDLK_f:
                 fullscreen_ = !fullscreen_;
-                SDL_SetWindowFullscreen(window_, (fullscreen_? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
                 break;
             case SDLK_r:
                 image_rot_deg_ += 90.0f * ((event.key.keysym.mod & KMOD_SHIFT)? -1.0f : 1.0f);
@@ -211,14 +216,14 @@ bool QShow::ChangeImage(BrowseImg direction)
 {
     switch (direction) {
 
-    case IM_NEXT:
+    case IMG_NEXT:
         if (++current_file_== filelist_.end()) {
             --current_file_;
             return false;
         }
         break;
 
-    case IM_PREV:
+    case IMG_PREV:
         if (current_file_ == filelist_.begin())
             return false;
         --current_file_;

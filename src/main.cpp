@@ -2,6 +2,7 @@
  * QShow - a fast and KISS image viewer
  *
  * 2008 (C) BELiAL <carlo.casta@gmail.com>
+ * 2017 - updated to SDL2
  */
 
 #include <iostream>
@@ -9,7 +10,7 @@
 
 int usage()
 {
-	std::cerr << "usage: qshow <image file>" << std::endl;
+    std::cerr << "usage: qshow <image file>" << std::endl;
     return -1;
 }
 
