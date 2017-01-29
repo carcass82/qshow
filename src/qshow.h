@@ -15,7 +15,7 @@
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 
-#include "SDL2/SDL.h"
+#include "SDL.h"
 #include "FreeImage.h"
 
 class QShow

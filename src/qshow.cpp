@@ -11,16 +11,8 @@ QShow::QShow(const std::string& arg)
 {
     InitSDL();
 
-    std::list<std::string> supportedFileExts;
-    supportedFileExts.push_back(".jpg");
-    supportedFileExts.push_back(".jpeg");
-    supportedFileExts.push_back(".png");
-    supportedFileExts.push_back(".bmp");
-    supportedFileExts.push_back(".gif");
-    supportedFileExts.push_back(".tga");
-    supportedFileExts.push_back(".tif");
-
     fs::path selectedFile(fs::current_path() / fs::path(arg));
+    current_file_ = filelist_.begin();
 
     auto directory = fs::directory_iterator(selectedFile.parent_path());
     for (auto& path : directory) {
@@ -31,7 +23,7 @@ QShow::QShow(const std::string& arg)
         }
     }
 
-    current_file_ = filelist_.begin();
+    current_file_ = std::find(filelist_.begin(), filelist_.end(), selectedFile);
     LoadImage(selectedFile);
 
     SetVideoMode();
@@ -52,7 +44,7 @@ QShow::~QShow()
 
 void QShow::InitSDL()
 {
-    int res = SDL_Init(SDL_INIT_VIDEO);
+    int res = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
     SDL_assert(res >= 0);
 }
 
@@ -65,7 +57,7 @@ void QShow::LoadImage(const fs::path& image_file)
     FreeImage_Unload(original_image_);
     original_image_ = nullptr;
 
-
+    FREE_IMAGE_FORMAT format = FreeImage_GetFileType(image_file.generic_string().c_str());
     original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
     FIBITMAP* tmp = original_image_;
     original_image_ = FreeImage_ConvertTo32Bits(original_image_);
@@ -132,7 +124,7 @@ void QShow::Render()
         image_zoom.h = height_ / image_zoom_;
     }
 
-    SDL_Rect image_fit{(window_width_ - width_) / 2.0f, (window_height_ - height_) / 2.0f, width_, height_};
+    SDL_Rect image_fit{(window_width_ - width_) / 2, (window_height_ - height_) / 2, width_, height_};
     if (image_fit_factor_ != 1.0f) {
         image_fit.x = (window_width_ - (width_ * image_fit_factor_)) / 2.0f;
         image_fit.y = (window_height_ - (height_ * image_fit_factor_)) / 2.0f;
@@ -163,7 +155,6 @@ void QShow::Show()
             case SDL_WINDOWEVENT_RESIZED:
                 OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2);
                 break;
-
             case SDL_WINDOWEVENT_EXPOSED:
                 do_render = true;
                 break;
@@ -184,13 +175,17 @@ void QShow::Show()
                 quit_ = true;
                 break;
             case SDLK_f:
-                fullscreen_ = !fullscreen_;
-                do_render = true;
+                if (sdl_event_.key.repeat == 0) {
+                    fullscreen_ = !fullscreen_;
+                    do_render = true;
+                }
                 break;
             case SDLK_r:
-                image_rot_deg_ += 90.0f * ((sdl_event_.key.keysym.mod & KMOD_SHIFT)? -1.0f : 1.0f);
-                image_rot_deg_ = std::fmod(image_rot_deg_, 360.0f);
-                do_render = true;
+                if (sdl_event_.key.repeat == 0) {
+                    image_rot_deg_ += 90.0f * ((sdl_event_.key.keysym.mod & KMOD_SHIFT)? -1.0f : 1.0f);
+                    image_rot_deg_ = std::fmod(image_rot_deg_, 360.0f);
+                    do_render = true;
+                }
                 break;
             case SDLK_PLUS:
                 image_zoom_ = image_zoom_ + 0.1f;
