@@ -54,7 +54,6 @@ private:
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
     SDL_Texture* texture_ = nullptr;
-
     SDL_Event sdl_event_;
     FIBITMAP* original_image_ = nullptr;
 };

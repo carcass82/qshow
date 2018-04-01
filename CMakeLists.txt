@@ -7,7 +7,7 @@ endif(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -O0 -g -std=c++11")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -O2 -march=native -ffast-math -finline-functions -fno-rtti -std=c++11")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -Wextra -O2 -march=native -ffast-math -finline-functions -fno-rtti -std=c++11")
 
 if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set(FILESYSTEM_LIBRARY "-lstdc++fs")
