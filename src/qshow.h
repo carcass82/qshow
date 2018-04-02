@@ -26,11 +26,11 @@ public:
     void Show();
 
 private:
-    enum BrowseImg { IMG_NEXT, IMG_PREV };
+    enum class Browse { NEXT, PREVIOUS };
 
     void InitSDL();
     void LoadImage(const fs::path& image_file);
-    bool ChangeImage(BrowseImg direction);
+    bool ChangeImage(Browse direction);
     void SetVideoMode();
     void Render();
     void SetTitle(const std::string& filename);
@@ -47,6 +47,7 @@ private:
     float image_zoom_ = 1.0f;
     float image_rot_deg_ = 0.0f;
     float image_fit_factor_= 0.0f;
+    SDL_Point image_move_ = {};
 
     std::vector<fs::path> filelist_;
     std::vector<fs::path>::iterator current_file_;

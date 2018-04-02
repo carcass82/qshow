@@ -7,6 +7,8 @@
 
 #include "qshow.h"
 
+int clamp(int val, int min, int max) { return std::min(std::max(val, min), max); }
+
 QShow::QShow(const std::string& arg)
 {
     InitSDL();
@@ -51,9 +53,10 @@ void QShow::InitSDL()
 
 void QShow::LoadImage(const fs::path& image_file)
 {
-    // reset zoom and rotation
+    // reset zoom, movement and rotation
     image_zoom_ = 1.0f;
     image_rot_deg_ = 0.0f;
+    image_move_ = { 0, 0 };
 
     FreeImage_Unload(original_image_);
     original_image_ = nullptr;
@@ -92,10 +95,8 @@ void QShow::SetVideoMode()
 void QShow::OnImageChanged()
 {
     SDL_DestroyTexture(texture_);
-
     texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STATIC, width_, height_);
     SDL_UpdateTexture(texture_, nullptr, FreeImage_GetBits(original_image_), width_ * bpp_ / 8);
-
     SDL_assert(texture_);
 }
 
@@ -105,7 +106,6 @@ void QShow::OnSizeChanged(int32_t w, int32_t h)
                                  static_cast<float>(h) / height_);
     window_width_ = w;
     window_height_ = h;
-
     SDL_Log("resize event: %dx%d, new fit factor %f", w, h, image_fit_factor_);
 }
 
@@ -122,9 +122,14 @@ void QShow::Render()
         float h2 = image_zoom.h / 2.0f;
 
         image_zoom.x = w2 - (w2 / image_zoom_);
-        image_zoom.y = h2 - (h2 / image_zoom_);
+        image_zoom.y = (h2 - (h2 / image_zoom_));
         image_zoom.w = width_ / image_zoom_;
-        image_zoom.h = height_ / image_zoom_;
+        image_zoom.h = (height_ / image_zoom_);
+
+        image_zoom.y = clamp(image_zoom.y + image_move_.y, 0, height_ - image_zoom.h);
+        image_zoom.x = clamp(image_zoom.x + image_move_.x, 0, width_ - image_zoom.w);
+
+        SDL_Log("zoom: src img is (%d, %d) to (%d, %d) [move: %d, %d]", image_zoom.x, image_zoom.y, image_zoom.w, image_zoom.h, image_move_.x, image_move_.y);
     }
 
     SDL_Rect image_fit = {(window_width_ - width_) / 2, (window_height_ - height_) / 2, width_, height_};
@@ -154,20 +159,14 @@ void QShow::Show()
         case SDL_WINDOWEVENT:
             switch (sdl_event_.window.event)
             {
-            case SDL_WINDOWEVENT_CLOSE:
-                quit_ = true;
-                break;
-            case SDL_WINDOWEVENT_RESIZED:
-                OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2);
-                break;
-            case SDL_WINDOWEVENT_EXPOSED:
-                do_render = true;
-                break;
+            case SDL_WINDOWEVENT_CLOSE:   quit_ = true; break;
+            case SDL_WINDOWEVENT_RESIZED: OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2); break;
+            case SDL_WINDOWEVENT_EXPOSED: do_render = true; break;
             }
             break;
 
         case SDL_MOUSEWHEEL:
-            if (ChangeImage((sdl_event_.wheel.y > 0)? IMG_PREV : IMG_NEXT))
+            if (ChangeImage((sdl_event_.wheel.y > 0)? Browse::PREVIOUS : Browse::NEXT))
             {
                 OnImageChanged();
                 OnSizeChanged(window_width_, window_height_);
@@ -201,7 +200,23 @@ void QShow::Show()
                 do_render = true;
                 break;
             case SDLK_MINUS:
-                image_zoom_ = std::max(1.0f, image_zoom_ - 0.1f);
+                image_zoom_ = std::max(1.0f, image_zoom_ - 0.2f);
+                do_render = true;
+                break;
+            case SDLK_UP:
+                image_move_.y = std::min(image_move_.y + 5, int(height_ / 2 - (height_ / 2 / image_zoom_)));
+                do_render = true;
+                break;
+            case SDLK_DOWN:
+                image_move_.y = std::max(image_move_.y - 5, -int(height_ / 2 - (height_ / 2 / image_zoom_)));
+                do_render = true;
+                break;
+            case SDLK_RIGHT:
+                image_move_.x = std::min(image_move_.x + 5, int(width_ / 2 - (width_ / 2 / image_zoom_)));
+                do_render = true;
+                break;
+            case SDLK_LEFT:
+                image_move_.x = std::max(image_move_.x - 5, -int(width_ / 2 - (width_ / 2 / image_zoom_)));
                 do_render = true;
                 break;
             }
@@ -225,25 +240,18 @@ void QShow::SetTitle(const std::string& filename)
     SDL_SetWindowTitle(window_, title_string);
 }
 
-bool QShow::ChangeImage(BrowseImg direction)
+bool QShow::ChangeImage(Browse direction)
 {
     switch (direction)
     {
-    case IMG_NEXT:
-        if (++current_file_== filelist_.end())
-        {
-            --current_file_;
-            return false;
-        }
+    case Browse::NEXT:
+        if (current_file_ + 1 == filelist_.end()) { return false; }
+        ++current_file_;
         break;
 
-    case IMG_PREV:
-        if (current_file_ == filelist_.begin())
-            return false;
+    case Browse::PREVIOUS:
+        if (current_file_ == filelist_.begin()) { return false; }
         --current_file_;
-        break;
-
-    default:
         break;
     }
 
