@@ -49,8 +49,9 @@ bool QShow::Init(const std::string& filename)
             if (LoadImage(*current_file_))
             {
                 CreateWindow();
+                OnSizeChanged(width_, height_);
                 LoadTexture();
-                SetTitle((*current_file_).filename().generic_string());
+                SetTitle();
 
                 return true;
             }
@@ -140,7 +141,7 @@ void QShow::Render()
         image_zoom.x = w2 - (w2 / image_zoom_);
         image_zoom.y = (h2 - (h2 / image_zoom_));
         image_zoom.w = width_ / image_zoom_;
-        image_zoom.h = (height_ / image_zoom_);
+        image_zoom.h = height_ / image_zoom_;
 
         // scrolling
         image_zoom.y = clamp(image_zoom.y + image_move_.y, 0, height_ - image_zoom.h);
@@ -201,7 +202,6 @@ void QShow::Run()
                 if (ChangeImage((sdl_event_.wheel.y > 0)? Browse::PREVIOUS : Browse::NEXT))
                 {
                     LoadTexture();
-                    SetTitle((*current_file_).filename().generic_string());
                     do_render = true;
                 }
             }
@@ -305,7 +305,6 @@ void QShow::Run()
                 if (ChangeImage((sdl_event_.key.keysym.sym == SDLK_PAGEUP)? Browse::PREVIOUS : Browse::NEXT))
                 {
                     LoadTexture();
-                    SetTitle((*current_file_).filename().generic_string());
                     do_render = true;
                 }
                 break;
@@ -316,15 +315,21 @@ void QShow::Run()
         if (do_render)
         {
             Render();
+            SetTitle();
         }
 
         SDL_Delay(1);
     }
 }
 
-void QShow::SetTitle(const std::string& filename)
+void QShow::SetTitle()
 {
-    std::snprintf(title_string, 256, "qShow v1.0 [%s]", filename.c_str());
+    std::snprintf(title_string, 256, "[%s] (%dx%d %d%%) - qShow",
+                                     (*current_file_).filename().generic_string().c_str(),
+                                     width_,
+                                     height_,
+                                     (int)(width_ *  image_fit_factor_ * 100.f / width_));
+
     SDL_SetWindowTitle(window_, title_string);
 }
 

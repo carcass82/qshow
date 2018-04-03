@@ -34,7 +34,7 @@ private:
     bool ChangeImage(Browse direction);
     void CreateWindow();
     void Render();
-    void SetTitle(const std::string& filename);
+    void SetTitle();
     void OnSizeChanged(int32_t w, int32_t h);
 
     bool quit_ = false;
