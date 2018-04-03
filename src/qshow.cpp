@@ -73,8 +73,6 @@ void QShow::CreateWindow()
     SDL_assert(renderer_);
 
     SDL_SetRenderDrawColor(renderer_, 0x00, 0x00, 0x00, 0xff);
-
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 }
 
 bool QShow::LoadImage(const fs::path& image_file)
@@ -90,7 +88,7 @@ bool QShow::LoadImage(const fs::path& image_file)
 
     // load bytes
     FREE_IMAGE_FORMAT format = FreeImage_GetFileType(image_file.generic_string().c_str());
-    original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
+    original_image_ = FreeImage_Load(format, image_file.generic_string().c_str(), (format == FIF_JPEG)? JPEG_EXIFROTATE : 0);
     FIBITMAP* tmp = original_image_;
     original_image_ = FreeImage_ConvertTo32Bits(original_image_);
     FreeImage_Unload(tmp);
@@ -112,6 +110,8 @@ bool QShow::LoadImage(const fs::path& image_file)
 void QShow::LoadTexture()
 {
     SDL_DestroyTexture(texture_);
+
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
     texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STATIC, width_, height_);
     SDL_UpdateTexture(texture_, nullptr, FreeImage_GetBits(original_image_), width_ * bpp_ / 8);
     SDL_assert(texture_);
