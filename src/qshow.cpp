@@ -7,34 +7,7 @@
 
 #include "qshow.h"
 
-int clamp(int val, int min, int max) { return std::min(std::max(val, min), max); }
-
-QShow::QShow(const std::string& arg)
-{
-    InitSDL();
-
-    fs::path selectedFile(fs::absolute(arg));
-    current_file_ = filelist_.begin();
-
-    auto directory = fs::directory_iterator(selectedFile.parent_path());
-    for (auto& path : directory)
-    {
-        FREE_IMAGE_FORMAT format = FreeImage_GetFileType(path.path().generic_string().c_str());
-        if (format != FIF_UNKNOWN)
-        {
-            filelist_.push_back(path.path());
-        }
-    }
-
-    current_file_ = std::find(filelist_.begin(), filelist_.end(), selectedFile);
-    LoadImage(selectedFile);
-
-    SetVideoMode();
-
-    SetTitle((*current_file_).filename().generic_string());
-
-    OnImageChanged();
-}
+static inline int clamp(int val, int min, int max) { return std::min(std::max(val, min), max); }
 
 QShow::~QShow()
 {
@@ -45,38 +18,49 @@ QShow::~QShow()
     SDL_Quit();
 }
 
-void QShow::InitSDL()
+void QShow::ScanDirectory(const fs::path& filename)
 {
-    int res = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-    SDL_assert(res >= 0);
+    auto dir = filename.parent_path();
+    if (!dir.empty())
+    {
+        auto dir_path = fs::directory_iterator(dir);
+        for (auto& d_it : dir_path)
+        {
+            FREE_IMAGE_FORMAT format = FreeImage_GetFileType(d_it.path().generic_string().c_str());
+            if (format != FIF_UNKNOWN)
+            {
+                filelist_.push_back(d_it.path());
+                SDL_Log("Added '%s' to supported file list", d_it.path().filename().generic_string().c_str());
+            }
+        }
+    }
 }
 
-void QShow::LoadImage(const fs::path& image_file)
+bool QShow::Init(const std::string& filename)
 {
-    // reset zoom, movement and rotation
-    image_zoom_ = 1.0f;
-    image_rot_deg_ = 0.0f;
-    image_move_ = { 0, 0 };
+    if (SDL_Init(SDL_INIT_VIDEO) >= 0)
+    {
+        fs::path selected_file(fs::absolute(filename));
+        ScanDirectory(selected_file);
 
-    FreeImage_Unload(original_image_);
-    original_image_ = nullptr;
+        if (!filelist_.empty())
+        {
+            current_file_ = std::find(filelist_.begin(), filelist_.end(), selected_file);
+            if (LoadImage(*current_file_))
+            {
+                CreateWindow();
+                LoadTexture();
+                SetTitle((*current_file_).filename().generic_string());
 
-    FREE_IMAGE_FORMAT format = FreeImage_GetFileType(image_file.generic_string().c_str());
-    original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
-    FIBITMAP* tmp = original_image_;
-    original_image_ = FreeImage_ConvertTo32Bits(original_image_);
-    FreeImage_Unload(tmp);
+                return true;
+            }
+        }
+    }
 
-    SDL_assert(original_image_);
-
-    width_ = FreeImage_GetWidth(original_image_);
-    height_ = FreeImage_GetHeight(original_image_);
-    bpp_ = FreeImage_GetBPP(original_image_);
-
-    SDL_Log("Loaded %s (%dx%d), %dbpp", image_file.generic_string().c_str(), width_, height_, bpp_);
+    return false;
 }
 
-void QShow::SetVideoMode()
+void QShow::CreateWindow()
 {
     SDL_CreateWindowAndRenderer((fullscreen_)? 0 : width_,
                                 (fullscreen_)? 0 : height_,
@@ -92,7 +76,39 @@ void QShow::SetVideoMode()
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 }
 
-void QShow::OnImageChanged()
+bool QShow::LoadImage(const fs::path& image_file)
+{
+    // reset zoom, movement and rotation
+    image_zoom_ = 1.0f;
+    image_rot_deg_ = 0.0f;
+    image_move_ = { 0, 0 };
+
+    // unload if already loaded
+    FreeImage_Unload(original_image_);
+    original_image_ = nullptr;
+
+    // load bytes
+    FREE_IMAGE_FORMAT format = FreeImage_GetFileType(image_file.generic_string().c_str());
+    original_image_ = FreeImage_Load(format, image_file.generic_string().c_str());
+    FIBITMAP* tmp = original_image_;
+    original_image_ = FreeImage_ConvertTo32Bits(original_image_);
+    FreeImage_Unload(tmp);
+
+    SDL_assert(original_image_);
+
+    // get useful properties
+    width_ = FreeImage_GetWidth(original_image_);
+    height_ = FreeImage_GetHeight(original_image_);
+    bpp_ = FreeImage_GetBPP(original_image_);
+
+    // update zoom factor
+    image_fit_factor_ = std::min((float)window_width_ / width_, (float)window_height_ / height_);
+
+    SDL_Log("Loaded %s (%dx%d), %dbpp", image_file.generic_string().c_str(), width_, height_, bpp_);
+    return true;
+}
+
+void QShow::LoadTexture()
 {
     SDL_DestroyTexture(texture_);
     texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_BGRA32, SDL_TEXTUREACCESS_STATIC, width_, height_);
@@ -112,7 +128,6 @@ void QShow::OnSizeChanged(int32_t w, int32_t h)
 void QShow::Render()
 {
     SDL_SetWindowFullscreen(window_, (fullscreen_? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
-
     SDL_RenderClear(renderer_);
 
     SDL_Rect image_zoom = {0, 0, width_, height_};
@@ -121,15 +136,15 @@ void QShow::Render()
         float w2 = image_zoom.w / 2.0f;
         float h2 = image_zoom.h / 2.0f;
 
+        // zoom
         image_zoom.x = w2 - (w2 / image_zoom_);
         image_zoom.y = (h2 - (h2 / image_zoom_));
         image_zoom.w = width_ / image_zoom_;
         image_zoom.h = (height_ / image_zoom_);
 
+        // scrolling
         image_zoom.y = clamp(image_zoom.y + image_move_.y, 0, height_ - image_zoom.h);
         image_zoom.x = clamp(image_zoom.x + image_move_.x, 0, width_ - image_zoom.w);
-
-        SDL_Log("zoom: src img is (%d, %d) to (%d, %d) [move: %d, %d]", image_zoom.x, image_zoom.y, image_zoom.w, image_zoom.h, image_move_.x, image_move_.y);
     }
 
     SDL_Rect image_fit = {(window_width_ - width_) / 2, (window_height_ - height_) / 2, width_, height_};
@@ -146,7 +161,7 @@ void QShow::Render()
     SDL_RenderPresent(renderer_);
 }
 
-void QShow::Show()
+void QShow::Run()
 {
     while (!quit_)
     {
@@ -159,17 +174,26 @@ void QShow::Show()
         case SDL_WINDOWEVENT:
             switch (sdl_event_.window.event)
             {
-            case SDL_WINDOWEVENT_CLOSE:   quit_ = true; break;
-            case SDL_WINDOWEVENT_RESIZED: OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2); break;
-            case SDL_WINDOWEVENT_EXPOSED: do_render = true; break;
+            case SDL_WINDOWEVENT_CLOSE:
+                quit_ = true;
+                break;
+
+            case SDL_WINDOWEVENT_RESIZED:
+                OnSizeChanged(sdl_event_.window.data1, sdl_event_.window.data2);
+                do_render = true;
+                break;
+
+            case SDL_WINDOWEVENT_EXPOSED:
+                do_render = true;
+                break;
             }
             break;
 
         case SDL_MOUSEWHEEL:
             if (ChangeImage((sdl_event_.wheel.y > 0)? Browse::PREVIOUS : Browse::NEXT))
             {
-                OnImageChanged();
-                OnSizeChanged(window_width_, window_height_);
+                LoadTexture();
+                SetTitle((*current_file_).filename().generic_string());
                 do_render = true;
             }
             break;
@@ -180,6 +204,7 @@ void QShow::Show()
             case SDLK_ESCAPE:
                 quit_ = true;
                 break;
+
             case SDLK_f:
                 if (sdl_event_.key.repeat == 0)
                 {
@@ -187,6 +212,7 @@ void QShow::Show()
                     do_render = true;
                 }
                 break;
+
             case SDLK_r:
                 if (sdl_event_.key.repeat == 0)
                 {
@@ -195,29 +221,45 @@ void QShow::Show()
                     do_render = true;
                 }
                 break;
+
             case SDLK_PLUS:
                 image_zoom_ = image_zoom_ + 0.1f;
                 do_render = true;
                 break;
+
             case SDLK_MINUS:
                 image_zoom_ = std::max(1.0f, image_zoom_ - 0.2f);
                 do_render = true;
                 break;
+
             case SDLK_UP:
                 image_move_.y = std::min(image_move_.y + 5, int(height_ / 2 - (height_ / 2 / image_zoom_)));
                 do_render = true;
                 break;
+
             case SDLK_DOWN:
                 image_move_.y = std::max(image_move_.y - 5, -int(height_ / 2 - (height_ / 2 / image_zoom_)));
                 do_render = true;
                 break;
+
             case SDLK_RIGHT:
                 image_move_.x = std::min(image_move_.x + 5, int(width_ / 2 - (width_ / 2 / image_zoom_)));
                 do_render = true;
                 break;
+
             case SDLK_LEFT:
                 image_move_.x = std::max(image_move_.x - 5, -int(width_ / 2 - (width_ / 2 / image_zoom_)));
                 do_render = true;
+                break;
+
+            case SDLK_PAGEUP:
+            case SDLK_PAGEDOWN:
+                if (ChangeImage((sdl_event_.key.keysym.sym == SDLK_PAGEUP)? Browse::PREVIOUS : Browse::NEXT))
+                {
+                    LoadTexture();
+                    SetTitle((*current_file_).filename().generic_string());
+                    do_render = true;
+                }
                 break;
             }
             break;
@@ -234,8 +276,6 @@ void QShow::Show()
 
 void QShow::SetTitle(const std::string& filename)
 {
-    static char title_string[256];
-
     std::snprintf(title_string, 256, "qShow v1.0 [%s]", filename.c_str());
     SDL_SetWindowTitle(window_, title_string);
 }
@@ -255,8 +295,5 @@ bool QShow::ChangeImage(Browse direction)
         break;
     }
 
-    SetTitle((*current_file_).filename().generic_string());
-    LoadImage(*current_file_);
-
-    return true;
+    return LoadImage(*current_file_);
 }

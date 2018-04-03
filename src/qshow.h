@@ -21,20 +21,20 @@ namespace fs = std::experimental::filesystem;
 class QShow
 {
 public:
-    QShow(const std::string&);
     ~QShow();
-    void Show();
+    bool Init(const std::string& arg);
+    void Run();
 
 private:
     enum class Browse { NEXT, PREVIOUS };
 
-    void InitSDL();
-    void LoadImage(const fs::path& image_file);
+    void ScanDirectory(const fs::path& filename);
+    bool LoadImage(const fs::path& image_file);
+    void LoadTexture();
     bool ChangeImage(Browse direction);
-    void SetVideoMode();
+    void CreateWindow();
     void Render();
     void SetTitle(const std::string& filename);
-    void OnImageChanged();
     void OnSizeChanged(int32_t w, int32_t h);
 
     bool quit_ = false;
@@ -48,6 +48,7 @@ private:
     float image_rot_deg_ = 0.0f;
     float image_fit_factor_= 0.0f;
     SDL_Point image_move_ = {};
+    char title_string[256];
 
     std::vector<fs::path> filelist_;
     std::vector<fs::path>::iterator current_file_;

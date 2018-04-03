@@ -15,9 +15,17 @@ int main(int argc, char **argv)
         std::cerr << "usage: qshow <image file>" << std::endl;
         return -1;
     }
+
+    QShow mainw;
+    if (mainw.Init(argv[1]))
+    {
+        mainw.Run();
+    }
     else
     {
-        QShow mainw(argv[1]);
-        mainw.Show();
+        std::cerr << "unable to start qshow" << std::endl;
+        return -1;
     }
+
+    return 0;
 }
