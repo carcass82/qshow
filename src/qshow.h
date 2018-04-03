@@ -49,6 +49,9 @@ private:
     float image_fit_factor_= 0.0f;
     SDL_Point image_move_ = {};
     char title_string[256];
+    bool alt_mousewheel = false;
+    bool mouse_move_ = false;
+    SDL_Point mouse_move_start_ = {};
 
     std::vector<fs::path> filelist_;
     std::vector<fs::path>::iterator current_file_;

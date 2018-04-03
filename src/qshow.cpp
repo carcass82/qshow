@@ -190,11 +190,55 @@ void QShow::Run()
             break;
 
         case SDL_MOUSEWHEEL:
-            if (ChangeImage((sdl_event_.wheel.y > 0)? Browse::PREVIOUS : Browse::NEXT))
+            if (alt_mousewheel)
             {
-                LoadTexture();
-                SetTitle((*current_file_).filename().generic_string());
+                image_zoom_ = std::max(1.0f, image_zoom_ + ((sdl_event_.wheel.y > 0)? 0.2f : -0.2f));
+                SDL_Log("new zoom factor: %f", image_zoom_);
                 do_render = true;
+            }
+            else
+            {
+                if (ChangeImage((sdl_event_.wheel.y > 0)? Browse::PREVIOUS : Browse::NEXT))
+                {
+                    LoadTexture();
+                    SetTitle((*current_file_).filename().generic_string());
+                    do_render = true;
+                }
+            }
+            break;
+
+        case SDL_MOUSEBUTTONDOWN:
+            if (!mouse_move_ && sdl_event_.button.button == SDL_BUTTON_LEFT)
+            {
+                mouse_move_ = true;
+                mouse_move_start_ = { sdl_event_.button.x, sdl_event_.button.y };
+            }
+            break;
+
+        case SDL_MOUSEBUTTONUP:
+            if (sdl_event_.button.button == SDL_BUTTON_LEFT)
+            {
+                mouse_move_ = false;
+            }
+            break;
+
+        case SDL_MOUSEMOTION:
+            if (mouse_move_ && (sdl_event_.motion.state & SDL_BUTTON_LMASK) == SDL_BUTTON_LMASK)
+            {
+                image_move_.x += (mouse_move_start_.x - sdl_event_.button.x);
+                image_move_.y += (sdl_event_.button.y - mouse_move_start_.y);
+                mouse_move_start_ = { sdl_event_.button.x, sdl_event_.button.y };
+                SDL_Log("new move (%d, %d)", image_move_.x, image_move_.y);
+                do_render = true;
+            }
+            break;
+
+        case SDL_KEYUP:
+            switch (sdl_event_.key.keysym.sym)
+            {
+            case SDLK_LCTRL:
+                alt_mousewheel = false;
+                break;
             }
             break;
 
@@ -222,8 +266,12 @@ void QShow::Run()
                 }
                 break;
 
+            case SDLK_LCTRL:
+                alt_mousewheel = true;
+                break;
+
             case SDLK_PLUS:
-                image_zoom_ = image_zoom_ + 0.1f;
+                image_zoom_ = image_zoom_ + 0.2f;
                 do_render = true;
                 break;
 
