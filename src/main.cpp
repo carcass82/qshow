@@ -10,20 +10,14 @@
 
 int main(int argc, char **argv)
 {
-    if (argc < 2)
-    {
-        std::cerr << "usage: qshow <image file>" << std::endl;
-        return -1;
-    }
-
     QShow mainw;
-    if (mainw.Init(argv[1]))
+    if (mainw.Init((argc > 1)? argv[1] : "."))
     {
         mainw.Run();
     }
     else
     {
-        std::cerr << "unable to start qshow (perhaps image file does not exist?)" << std::endl;
+        std::cerr << "unable to start qshow" << std::endl;
         return -1;
     }
 

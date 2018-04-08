@@ -45,7 +45,7 @@ bool QShow::Init(const std::string& filename)
 
         if (!filelist_.empty())
         {
-            current_file_ = std::find(filelist_.begin(), filelist_.end(), selected_file);
+            current_file_ = (filename == ".")? filelist_.begin() : std::find(filelist_.begin(), filelist_.end(), selected_file);
             if (current_file_ != filelist_.end() && LoadImage(*current_file_))
             {
                 CreateWindow();
