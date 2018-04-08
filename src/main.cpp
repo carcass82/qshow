@@ -23,7 +23,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        std::cerr << "unable to start qshow" << std::endl;
+        std::cerr << "unable to start qshow (perhaps image file does not exist?)" << std::endl;
         return -1;
     }
 

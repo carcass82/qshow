@@ -30,7 +30,7 @@ void QShow::ScanDirectory(const fs::path& filename)
             if (format != FIF_UNKNOWN)
             {
                 filelist_.push_back(d_it.path());
-                SDL_Log("Added '%s' to supported file list", d_it.path().filename().generic_string().c_str());
+                SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Added '%s' to supported file list", d_it.path().filename().generic_string().c_str());
             }
         }
     }
@@ -46,7 +46,7 @@ bool QShow::Init(const std::string& filename)
         if (!filelist_.empty())
         {
             current_file_ = std::find(filelist_.begin(), filelist_.end(), selected_file);
-            if (LoadImage(*current_file_))
+            if (current_file_ != filelist_.end() && LoadImage(*current_file_))
             {
                 CreateWindow();
                 OnSizeChanged(width_, height_);
@@ -103,7 +103,7 @@ bool QShow::LoadImage(const fs::path& image_file)
     // update zoom factor
     image_fit_factor_ = std::min((float)window_width_ / width_, (float)window_height_ / height_);
 
-    SDL_Log("Loaded %s (%dx%d), %dbpp", image_file.generic_string().c_str(), width_, height_, bpp_);
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Loaded %s (%dx%d), %dbpp", image_file.generic_string().c_str(), width_, height_, bpp_);
     return true;
 }
 
@@ -123,7 +123,7 @@ void QShow::OnSizeChanged(int32_t w, int32_t h)
                                  static_cast<float>(h) / height_);
     window_width_ = w;
     window_height_ = h;
-    SDL_Log("resize event: %dx%d, new fit factor %f", w, h, image_fit_factor_);
+    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "resize event: %dx%d, new fit factor %f", w, h, image_fit_factor_);
 }
 
 void QShow::Render()
@@ -194,7 +194,7 @@ void QShow::Run()
             if (alt_mousewheel)
             {
                 image_zoom_ = std::max(1.0f, image_zoom_ + ((sdl_event_.wheel.y > 0)? 0.2f : -0.2f));
-                SDL_Log("new zoom factor: %f", image_zoom_);
+                SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "new zoom factor: %f", image_zoom_);
                 do_render = true;
             }
             else
@@ -228,7 +228,7 @@ void QShow::Run()
                 image_move_.x += (mouse_move_start_.x - sdl_event_.button.x);
                 image_move_.y += (sdl_event_.button.y - mouse_move_start_.y);
                 mouse_move_start_ = { sdl_event_.button.x, sdl_event_.button.y };
-                SDL_Log("new move (%d, %d)", image_move_.x, image_move_.y);
+                SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "new move (%d, %d)", image_move_.x, image_move_.y);
                 do_render = true;
             }
             break;
