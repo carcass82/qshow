@@ -7,15 +7,10 @@
 
 #include "qshow.h"
 
-static inline int clamp(int val, int min, int max) { return std::min(std::max(val, min), max); }
-
-QShow::~QShow()
-{
-    FreeImage_Unload(original_image_);
-    SDL_DestroyTexture(texture_);
-    SDL_DestroyRenderer(renderer_);
-    SDL_DestroyWindow(window_);
-    SDL_Quit();
+namespace {
+constexpr inline int max(int a, int b)                    { return  (a < b)? b : a; }
+constexpr inline int min(int a, int b)                    { return !(b < a)? a : b; }
+constexpr inline int clamp(int val, int lower, int upper) { return min(max(val, lower), upper); }
 }
 
 void QShow::ScanDirectory(const fs::path& filename)
@@ -95,6 +90,9 @@ bool QShow::LoadImage(const fs::path& image_file)
 
     SDL_assert(original_image_);
 
+    // maybe someday i will do something to those pixels
+    FilterImage();
+
     // get useful properties
     width_ = FreeImage_GetWidth(original_image_);
     height_ = FreeImage_GetHeight(original_image_);
@@ -126,7 +124,7 @@ void QShow::OnSizeChanged(int32_t w, int32_t h)
     SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "resize event: %dx%d, new fit factor %f", w, h, image_fit_factor_);
 }
 
-void QShow::Render()
+void QShow::Render() const
 {
     SDL_SetWindowFullscreen(window_, (fullscreen_? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
     SDL_RenderClear(renderer_);
@@ -199,7 +197,7 @@ void QShow::Run()
             }
             else
             {
-                if (ChangeImage((sdl_event_.wheel.y > 0)? Browse::PREVIOUS : Browse::NEXT))
+                if (((sdl_event_.wheel.y > 0) && PrevImage()) || ((sdl_event_.wheel.y < 0) && NextImage()))
                 {
                     LoadTexture();
                     do_render = true;
@@ -302,7 +300,7 @@ void QShow::Run()
 
             case SDLK_PAGEUP:
             case SDLK_PAGEDOWN:
-                if (ChangeImage((sdl_event_.key.keysym.sym == SDLK_PAGEUP)? Browse::PREVIOUS : Browse::NEXT))
+                if (((sdl_event_.key.keysym.sym == SDLK_PAGEUP) && PrevImage()) || ((sdl_event_.key.keysym.sym == SDLK_PAGEDOWN) && NextImage()))
                 {
                     LoadTexture();
                     do_render = true;
@@ -333,20 +331,22 @@ void QShow::SetTitle()
     SDL_SetWindowTitle(window_, title_string);
 }
 
-bool QShow::ChangeImage(Browse direction)
+bool QShow::PrevImage()
 {
-    switch (direction)
+    if (current_file_ != filelist_.begin())
     {
-    case Browse::NEXT:
-        if (current_file_ + 1 == filelist_.end()) { return false; }
-        ++current_file_;
-        break;
-
-    case Browse::PREVIOUS:
-        if (current_file_ == filelist_.begin()) { return false; }
-        --current_file_;
-        break;
+        return LoadImage(*current_file_--);
     }
 
-    return LoadImage(*current_file_);
+    return false;
+}
+
+bool QShow::NextImage()
+{
+    if (current_file_ + 1 != filelist_.end())
+    {
+        return LoadImage(*current_file_++);
+    }
+
+    return false;
 }

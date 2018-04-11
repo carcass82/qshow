@@ -6,8 +6,9 @@ if (NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG -Wall -Wextra -O0 -g -std=c++11")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -Wall -Wextra -O2 -march=native -ffast-math -finline-functions -fno-rtti -std=c++11")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++11")
+set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG -O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O2 -march=native -ffast-math -finline-functions")
 
 if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         set(FILESYSTEM_LIBRARY "-lstdc++fs")
@@ -15,7 +16,7 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
 
-project(QSHOW)
+project(qshow)
 
 find_package(SDL2 REQUIRED)
 find_package(FreeImage REQUIRED)
@@ -23,7 +24,6 @@ find_package(FreeImage REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
 include_directories(${FREEIMAGE_INCLUDE_DIRS})
 
-# set source files
 file(GLOB QSHOW_SRC ${QSHOW_SOURCE_DIR}/src/*.cpp ${QSHOW_SOURCE_DIR}/src/*.h)
 include_directories(${QSHOW_SOURCE_DIR}/src)
 

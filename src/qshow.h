@@ -6,36 +6,36 @@
  */
 
 #pragma once
-
-#include <cassert>
 #include <string>
-#include <list>
+#include <vector>
 #include <algorithm>
+using std::vector;
 
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
+using fs::path;
 
 #include "SDL.h"
 #include "FreeImage.h"
 
+
 class QShow
 {
 public:
-    ~QShow();
     bool Init(const std::string& arg);
     void Run();
 
 private:
-    enum class Browse { NEXT, PREVIOUS };
-
-    void ScanDirectory(const fs::path& filename);
-    bool LoadImage(const fs::path& image_file);
+    void ScanDirectory(const path& filename);
+    bool LoadImage(const path& image_file);
     void LoadTexture();
-    bool ChangeImage(Browse direction);
+    bool NextImage();
+    bool PrevImage();
     void CreateWindow();
-    void Render();
     void SetTitle();
     void OnSizeChanged(int32_t w, int32_t h);
+    void Render() const;
+    void FilterImage() { /* stub */ }
 
     bool quit_ = false;
     bool fullscreen_ = false;
@@ -53,8 +53,8 @@ private:
     bool mouse_move_ = false;
     SDL_Point mouse_move_start_ = {};
 
-    std::vector<fs::path> filelist_;
-    std::vector<fs::path>::iterator current_file_;
+    vector<path> filelist_;
+    vector<path>::const_iterator current_file_;
 
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
