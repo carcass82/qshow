@@ -16,7 +16,7 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
 
-project(qshow)
+project(QSHOW)
 
 find_package(SDL2 REQUIRED)
 find_package(FreeImage REQUIRED)
